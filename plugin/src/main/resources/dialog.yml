@@ -1,0 +1,18 @@
+# 家管理 Dialog 与确认菜单文本。支持 MiniMessage 格式；%home% 会替换为家名称。
+editor:
+  title: '<dark_gray>管理家: <gold>%home%'
+  message: '<gray>修改后点击保存更改；删除和迁移需要二次确认。'
+  name-label: '家名称'
+  description-label: '家描述'
+  save: '<green>保存更改'
+  back: '<gray>返回家列表'
+  relocate: '<yellow>迁移到当前位置'
+  make-public: '<aqua>设为公开'
+  make-private: '<gray>设为私有'
+  delete: '<red>删除家'
+
+confirm:
+  delete-title: '<dark_red>确认删除家: <white>%home%'
+  relocate-title: '<gold>确认迁移家: <white>%home%'
+  accept: '<green>确认'
+  cancel: '<red>取消'

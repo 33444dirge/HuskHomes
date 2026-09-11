@@ -1,0 +1,64 @@
+# 菜单每一行最多 9 个字符；H 为家槽位，P/N 分别为上一页/下一页。
+title: '<dark_gray>我的家'
+
+# 使用世界内部名映射显示名称；未列出的世界会显示原名称。
+world-names:
+  world: '主世界'
+  world_nether: '下界'
+  world_the_end: '末地'
+
+layout:
+  - 'xxxxxxxxx'
+  - 'xHHHHHHHx'
+  - 'xHHHHHHHx'
+  - 'xHHHHHHHx'
+  - 'xHHHHHHHx'
+  - 'xxxPxxNxx'
+
+items:
+  x:
+    material: GRAY_STAINED_GLASS_PANE
+    name: ' '
+    lore: []
+
+home-item:
+  material: RED_BED
+  name: '<!italic><gold>%home%'
+  lore:
+    - '<gray>世界: <white>%world%'
+    - '<gray>坐标: <white>%x%, %y%, %z%'
+    - '<gray>描述: <white>%description%'
+    - '<gray>状态: %privacy%'
+    - ''
+    - '<yellow>左键传送'
+    - '<aqua>右键管理'
+    - '<light_purple>鼠标携带物品点击: 设置图标'
+    - '<light_purple>Shift 点击: 还原默认图标'
+
+# 没有家时，填充所有 H 槽位的物品。删除此段则保持为空气。
+empty-home-item:
+  material: LIGHT_GRAY_STAINED_GLASS_PANE
+  name: '<gray>空家槽位'
+  lore: []
+
+previous-page:
+  material: ARROW
+  name: '<yellow>上一页'
+  lore: []
+
+# 没有上一页时显示。删除此段则保持为空气。
+previous-page-disabled:
+  material: GRAY_DYE
+  name: '<gray>已经是第一页'
+  lore: []
+
+next-page:
+  material: ARROW
+  name: '<yellow>下一页'
+  lore: []
+
+# 没有下一页时显示。删除此段则保持为空气。
+next-page-disabled:
+  material: GRAY_DYE
+  name: '<gray>已经是最后一页'
+  lore: []

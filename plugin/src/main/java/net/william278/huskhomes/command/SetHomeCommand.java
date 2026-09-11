@@ -50,7 +50,9 @@ public class SetHomeCommand extends SetPositionCommand {
     protected void execute(@NotNull OnlineUser setter, @NotNull String name) {
         plugin.fireEvent(plugin.getHomeCreateEvent(setter, name, setter.getPosition(), setter), (event) -> {
             try {
-                plugin.getManager().homes().createHome(setter, event.getName(), event.getPosition());
+                plugin.getManager().homes().createHome(
+                        setter, event.getName(), event.getPosition(), false, true, false, false
+                );
             } catch (ValidationException e) {
                 e.dispatchHomeError(setter, false, plugin, event.getName());
                 return;
@@ -66,7 +68,7 @@ public class SetHomeCommand extends SetPositionCommand {
                 : (homes.size() == 1 && plugin.getSettings().getGeneral().getNames().isOverwriteExisting())
                 ? Optional.of(homes.get(0).getName()) : Optional.empty();
         if (name.isPresent()) {
-            this.execute(user, "home");
+            this.execute(user, name.get());
             return true;
         }
         return false;

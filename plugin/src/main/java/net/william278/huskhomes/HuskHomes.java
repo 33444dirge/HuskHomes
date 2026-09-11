@@ -71,7 +71,7 @@ public interface HuskHomes extends Task.Supplier, EventDispatcher, SavePositionP
      *
      * @since 4.8
      */
-    default void load() {
+    default boolean load() {
         try {
             loadConfigs();
             setHooks(Sets.newHashSet());
@@ -81,13 +81,14 @@ public interface HuskHomes extends Task.Supplier, EventDispatcher, SavePositionP
             log(Level.SEVERE, "Failed to load the HuskHomes config.yml file! HuskHomes will be disabled.\n" +
                     "Please regenerate your HuskHomes config.yml file (delete it and restart your server.)", e);
             disablePlugin();
-            return;
+            return false;
         } catch (Throwable e) {
             log(Level.SEVERE, "An error occurred whilst loading HuskHomes", e);
             disablePlugin();
-            return;
+            return false;
         }
         log(Level.INFO, String.format("Successfully loaded HuskHomes v%s", getPluginVersion()));
+        return true;
     }
 
     /**
@@ -95,7 +96,7 @@ public interface HuskHomes extends Task.Supplier, EventDispatcher, SavePositionP
      *
      * @since 4.8
      */
-    default void enable() {
+    default boolean enable() {
         try {
             loadDatabase();
             loadBroker();
@@ -111,11 +112,12 @@ public interface HuskHomes extends Task.Supplier, EventDispatcher, SavePositionP
         } catch (Throwable e) {
             log(Level.SEVERE, "An error occurred whilst enabling HuskHomes", e);
             disablePlugin();
-            return;
+            return false;
         }
         log(Level.INFO, String.format("Successfully enabled HuskHomes v%s", getPluginVersion()));
         checkForUpdates();
         loadAfterLoadHooks();
+        return true;
     }
 
     /**

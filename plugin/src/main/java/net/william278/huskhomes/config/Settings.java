@@ -182,7 +182,7 @@ public final class Settings {
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public static class NameSettings {
             @Comment("Whether running /sethome <name> or /setwarp <name> when one already exists should overwrite.")
-            private boolean overwriteExisting = true;
+            private boolean overwriteExisting = false;
 
             @Comment("Whether home or warp names should be case insensitive (i.e. allow /home HomeOne & /home homeone)")
             private boolean caseInsensitive = false;
@@ -192,7 +192,7 @@ public final class Settings {
             private boolean restrict = true;
 
             @Comment("Regex which home and warp names must match. Names have a max length of 16 characters")
-            private String regex = "[a-zA-Z0-9-_]*";
+            private String regex = "[\\p{L}\\p{N}_-]*";
         }
 
         @Comment("Settings for home and warp descriptions")

@@ -91,6 +91,7 @@ public interface CommandProvider {
         commands.add(new HomeListCommand(getPlugin()));
         commands.add(new DelHomeCommand(getPlugin()));
         commands.add(new EditHomeCommand(getPlugin()));
+        commands.add(new HomeMenuCommand(getPlugin()));
         commands.add(new PublicHomeCommand(getPlugin()));
         commands.add(new PublicHomeListCommand(getPlugin()));
         commands.add(new WarpCommand(getPlugin()));

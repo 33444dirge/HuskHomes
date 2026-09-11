@@ -20,6 +20,7 @@
 package net.william278.huskhomes.command;
 
 import net.william278.huskhomes.HuskHomes;
+import net.william278.huskhomes.PaperHuskHomes;
 import net.william278.huskhomes.config.Locales;
 import net.william278.huskhomes.position.Home;
 import net.william278.huskhomes.user.CommandUser;
@@ -47,6 +48,10 @@ public class HomeListCommand extends ListCommand {
 
     @Override
     public void execute(@NotNull CommandUser executor, @NotNull String[] args) {
+        if (args.length == 0 && executor instanceof OnlineUser user && plugin instanceof PaperHuskHomes paper) {
+            paper.getHomeMenu().open(user);
+            return;
+        }
         final Optional<String> homeOwner = args.length > 0 ? parseStringArg(args, 0)
                 : executor instanceof OnlineUser user ? Optional.of(user.getName()) : Optional.empty();
         final int pageNumber = parseIntArg(args, args.length > 1 ? 1 : 0).orElse(1);

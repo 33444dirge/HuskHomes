@@ -971,7 +971,7 @@ public class BaseHuskHomesAPI {
                 Could not access the HuskHomes API as it has not yet been registered. This could be because:
                 1) HuskHomes has failed to enable successfully
                 2) Your plugin isn't set to load after HuskHomes has
-                   (Check if it set as a (soft)depend in plugin.yml or to load: BEFORE in paper-plugin.yml?)
+                   (Check whether it is declared as a (soft)depend in plugin.yml.)
                 3) You are attempting to access HuskHomes on plugin construction/before your plugin has enabled.""";
 
         NotRegisteredException() {

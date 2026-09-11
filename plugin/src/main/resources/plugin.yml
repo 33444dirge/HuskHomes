@@ -1,0 +1,17 @@
+name: 'HuskHomes'
+description: '${description}'
+author: 'William278'
+website: 'https://william278.net/'
+main: 'net.william278.huskhomes.PaperHuskHomes'
+version: '${version}'
+api-version: '1.21'
+folia-supported: true
+softdepend:
+  - LuckPerms
+  - Vault
+  - PlaceholderAPI
+  - dynmap
+  - BlueMap
+  - Pl3xMap
+  - Plan
+  - Essentials

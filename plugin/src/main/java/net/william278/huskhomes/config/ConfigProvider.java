@@ -188,31 +188,23 @@ public interface ConfigProvider {
      */
     default void loadUnsafeBlocks() {
         final Path path = getConfigDirectory().resolve("safety/unsafe_blocks.yml");
-        if (Files.exists(path)) {
-            try {
-                setUnsafeBlocks(YamlConfigurations.load(
-                        path,
-                        UnsafeBlocks.class,
-                        YAML_CONFIGURATION_PROPERTIES.build()
-                ));
-                getPlugin().log(Level.INFO, "Loaded custom unsafe blocks");
-                return;
+        if (!Files.exists(path)) {
+            try (InputStream input = getResource("safety/unsafe_blocks.yml")) {
+                Files.createDirectories(path.getParent());
+                Files.copy(input, path);
             } catch (Exception e) {
-                getPlugin().log(
-                        Level.WARNING,
-                        "An error occurred loading custom unsafe blocks. Will load built-in file instead.",
-                        e
-                );
+                throw new IllegalStateException("Failed to create the unsafe blocks configuration", e);
             }
         }
 
-        try (InputStream input = getResource("safety/unsafe_blocks.yml")) {
-            setUnsafeBlocks(YamlConfigurations.read(
-                    input,
+        try {
+            setUnsafeBlocks(YamlConfigurations.load(
+                    path,
                     UnsafeBlocks.class,
                     YAML_CONFIGURATION_PROPERTIES.build()
             ));
-        } catch (Throwable e) {
+            getPlugin().log(Level.INFO, "Loaded unsafe blocks configuration");
+        } catch (Exception e) {
             throw new IllegalStateException("An error occurred loading the unsafe blocks", e);
         }
     }

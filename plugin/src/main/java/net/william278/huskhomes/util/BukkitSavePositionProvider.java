@@ -44,7 +44,7 @@ public interface BukkitSavePositionProvider extends SavePositionProvider {
             return CompletableFuture.completedFuture(Optional.empty());
         }
 
-        return bukkitLocation.getWorld().getChunkAtAsync(bukkitLocation)
+        return FoliaScheduler.getChunkAt((PaperHuskHomes) getPlugin(), bukkitLocation.getWorld(), bukkitLocation)
                 .thenApply(Chunk::getChunkSnapshot)
                 .thenApply(snapshot -> findSafeLocationNear(
                         location,

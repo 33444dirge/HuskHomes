@@ -38,6 +38,7 @@ import net.william278.huskhomes.hook.Hook;
 import net.william278.huskhomes.listener.PaperEventListener;
 import net.william278.huskhomes.listener.EventListener;
 import net.william278.huskhomes.manager.Manager;
+import net.william278.huskhomes.menu.HomeMenu;
 import net.william278.huskhomes.network.Broker;
 import net.william278.huskhomes.network.PluginMessageBroker;
 import net.william278.huskhomes.position.Location;
@@ -98,30 +99,41 @@ public class PaperHuskHomes extends JavaPlugin implements HuskHomes, BukkitTask.
     private Spawn serverSpawn;
     @Setter
     private UnsafeBlocks unsafeBlocks;
+    private HomeMenu homeMenu;
     @Setter
     @Nullable
     private Broker broker;
     @Setter
     @Nullable
     private Server serverName;
+    private boolean loaded;
 
     @Override
     public void onLoad() {
-        this.load();
+        loaded = this.load();
     }
 
     @Override
     public void onEnable() {
         // Cache the server threading model before any scheduled work is submitted.
         FoliaScheduler.isFolia();
+        if (!loaded) {
+            log(Level.SEVERE, "HuskHomes was not enabled because its configuration could not be loaded.");
+            return;
+        }
         this.toilet = BukkitToilet.create(getDumpOptions());
-        this.enable();
+        if (!this.enable()) {
+            return;
+        }
+        this.homeMenu = new HomeMenu(this);
         this.loadCommands();
     }
 
     @Override
     public void onDisable() {
-        this.shutdown();
+        if (loaded) {
+            this.shutdown();
+        }
     }
 
     @Override

@@ -1,13 +1,16 @@
 package net.william278.huskhomes.util;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
 
 /** Native scheduler bridge for Paper and Folia. */
 public final class FoliaScheduler {
@@ -82,5 +85,29 @@ public final class FoliaScheduler {
         } else {
             Bukkit.getScheduler().cancelTasks(plugin);
         }
+    }
+
+    @NotNull
+    public static CompletableFuture<Chunk> getChunkAt(@NotNull Plugin plugin, @NotNull World world,
+                                                      @NotNull Location location) {
+        final CompletableFuture<Chunk> future = new CompletableFuture<>();
+        if (isFolia()) {
+            Bukkit.getRegionScheduler().runDelayed(plugin, location, task -> {
+                try {
+                    future.complete(world.getChunkAt(location));
+                } catch (Throwable throwable) {
+                    future.completeExceptionally(throwable);
+                }
+            }, 1);
+        } else {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    future.complete(world.getChunkAt(location));
+                } catch (Throwable throwable) {
+                    future.completeExceptionally(throwable);
+                }
+            });
+        }
+        return future;
     }
 }

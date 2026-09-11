@@ -19,10 +19,11 @@
 
 package net.william278.huskhomes.listener;
 
-import com.destroystokyo.paper.event.player.PlayerSetSpawnEvent;
 import net.william278.huskhomes.PaperHuskHomes;
 import net.william278.huskhomes.config.Settings;
 import org.bukkit.Location;
+import org.bukkit.block.data.type.Bed;
+import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -62,9 +63,7 @@ public class PaperEventListener extends EventListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         getPlugin().getOnlineUserMap().remove(event.getPlayer().getUniqueId());
-        if (event.getRespawnReason() == PlayerRespawnEvent.RespawnReason.DEATH) {
-            super.handlePlayerRespawn(getPlugin().getOnlineUser(event.getPlayer()));
-        }
+        super.handlePlayerRespawn(getPlugin().getOnlineUser(event.getPlayer()));
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -99,12 +98,16 @@ public class PaperEventListener extends EventListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-    public void onPlayerUpdateRespawnLocation(PlayerSetSpawnEvent event) {
+    public void onPlayerUpdateRespawnLocation(PlayerInteractEvent event) {
         final Settings.CrossServerSettings crossServer = getPlugin().getSettings().getCrossServer();
         if (!(crossServer.isEnabled() && crossServer.isGlobalRespawning())) {
             return;
         }
-        final Location location = event.getLocation();
+        if (event.getClickedBlock() == null || !(event.getClickedBlock().getBlockData() instanceof Bed
+                                                 || event.getClickedBlock().getBlockData() instanceof RespawnAnchor)) {
+            return;
+        }
+        final Location location = event.getPlayer().getBedSpawnLocation();
         if (location == null) {
             return;
         }

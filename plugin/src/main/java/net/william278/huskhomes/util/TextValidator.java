@@ -52,7 +52,7 @@ public interface TextValidator {
     // Check a home/warp name contains only valid characters
     private boolean isValidNameCharacters(@NotNull String name) {
         final Settings.GeneralSettings.NameSettings config = getSettings().getGeneral().getNames();
-        return (name.matches(config.getRegex()) || !config.isRestrict())
+        return (name.matches(config.getRegex()) || name.matches("[\\p{L}\\p{N}_-]*") || !config.isRestrict())
                 && !name.contains("\u0000")
                 && !containsWhitespace(name)
                 && !name.contains(Home.getDelimiter());

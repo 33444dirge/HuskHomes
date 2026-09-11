@@ -68,7 +68,7 @@ jobs:
             Fabric 1.21.11
             Fabric 26.1.2
           files: |
-            target/HuskHomes-Paper-${{ env.version_name }}.jar
+            target/HuskHomes-Plugin-${{ env.version_name }}.jar
             target/HuskHomes-Fabric-${{ env.version_name }}+mc.1.21.1.jar
             target/HuskHomes-Fabric-${{ env.version_name }}+mc.1.21.11.jar
             target/HuskHomes-Fabric-${{ env.version_name }}+mc.26.1.2.jar
@@ -86,7 +86,7 @@ jobs:
           hangar-id: William278/HuskHomes
           hangar-token: ${{ secrets.HANGAR_API_KEY }}
           hangar-version-type: Alpha
-          files-primary: target/HuskHomes-Paper-${{ env.version_name }}.jar
+          files-primary: target/HuskHomes-Plugin-${{ env.version_name }}.jar
           name: HuskHomes (Spigot) v${{ env.version_name }}
           version: ${{ env.version_name }}
           version-type: alpha

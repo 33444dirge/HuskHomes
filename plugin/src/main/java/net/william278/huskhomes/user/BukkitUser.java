@@ -126,7 +126,7 @@ public class BukkitUser extends OnlineUser {
             bukkitPlayer.leaveVehicle();
             bukkitPlayer.eject();
             bukkitPlayer.setFallDistance(0f);
-            if (async || FoliaScheduler.isFolia()) {
+            if (FoliaScheduler.isFolia()) {
                 bukkitPlayer.teleportAsync(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
                 return;
             }

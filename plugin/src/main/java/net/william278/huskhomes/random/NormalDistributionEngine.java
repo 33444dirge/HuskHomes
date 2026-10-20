@@ -30,6 +30,8 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 
 /**
@@ -129,13 +131,51 @@ public final class NormalDistributionEngine extends RandomTeleportEngine {
         return (float) (Math.random() * 360);
     }
 
+    /**
+     * Generate a safe ground-level {@link Location} uniformly distributed within a custom ring around the center.
+     *
+     * <p>A uniform distribution is used rather than the normal distribution, as the latter may fail to produce
+     * values within narrow custom ranges.
+     *
+     * @param world     The world to generate the location in
+     * @param minRadius The minimum distance from the center
+     * @param maxRadius The maximum distance from the center
+     * @return A generated location
+     */
+    private CompletableFuture<Optional<Location>> generateSafeLocation(@NotNull World world,
+                                                                       int minRadius, int maxRadius) {
+        final Location origin = getCenterPoint(world);
+        final double min = (double) minRadius * minRadius;
+        final double max = (double) maxRadius * maxRadius;
+        final double radius = Math.sqrt(min + ThreadLocalRandom.current().nextDouble() * (max - min));
+        final double angle = ThreadLocalRandom.current().nextDouble() * Math.PI * 2;
+        return plugin.findSafeGroundLocation(Location.at(
+                Math.round(origin.getX()) + radius * Math.sin(angle),
+                128d,
+                Math.round(origin.getZ()) + radius * Math.cos(angle),
+                origin.getWorld()
+        ));
+    }
+
+    @Override
+    public CompletableFuture<Optional<Position>> getRandomPosition(@NotNull World world, int minRadius, int maxRadius,
+                                                                   @NotNull String[] args) {
+        return findPosition(() -> generateSafeLocation(world, minRadius, maxRadius));
+    }
+
     @Override
     public CompletableFuture<Optional<Position>> getRandomPosition(@NotNull World world, @NotNull String[] args) {
+        return findPosition(() -> generateSafeLocation(world));
+    }
+
+    @NotNull
+    private CompletableFuture<Optional<Position>> findPosition(
+            @NotNull Supplier<CompletableFuture<Optional<Location>>> generator) {
         return plugin.supplyAsync(() -> {
-            Optional<Location> location = generateSafeLocation(world).join();
+            Optional<Location> location = generator.get().join();
             int attempts = 0;
             while (location.isEmpty()) {
-                location = generateSafeLocation(world).join();
+                location = generator.get().join();
                 if (attempts >= maxAttempts) {
                     return Optional.empty();
                 }

@@ -85,4 +85,20 @@ public abstract class RandomTeleportEngine {
     public abstract CompletableFuture<Optional<Position>> getRandomPosition(@NotNull World world,
                                                                             @NotNull String[] args);
 
+    /**
+     * Gets a random position in the {@link World} within a custom radius range around the center point.
+     *
+     * <p>Engines that do not support custom ranges fall back to {@link #getRandomPosition(World, String[])}.
+     *
+     * @param world     The world to find a random position in
+     * @param minRadius The minimum distance from the center point
+     * @param maxRadius The maximum distance from the center point
+     * @param args      The arguments to pass to the random teleport engine
+     * @return An Optional position, if one could be found in the {@link #maxAttempts max attempts}
+     */
+    public CompletableFuture<Optional<Position>> getRandomPosition(@NotNull World world, int minRadius, int maxRadius,
+                                                                   @NotNull String[] args) {
+        return getRandomPosition(world, args);
+    }
+
 }

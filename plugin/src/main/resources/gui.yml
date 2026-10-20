@@ -13,13 +13,25 @@ layout:
   - 'xHHHHHHHx'
   - 'xHHHHHHHx'
   - 'xHHHHHHHx'
-  - 'xxxPxxNxx'
+  - 'xxxPBxNxx'
 
+# 自定义物品。键为 layout 中的单个字符（H/P/N 为保留字符）。
+# 可选 commands: 点击后关闭菜单并依次执行，支持前缀：
+#   [player] 以玩家身份执行（默认，可省略）
+#   [console] 以控制台身份执行
+# 变量: %player% 玩家名, %uuid% 玩家 UUID
 items:
   x:
     material: GRAY_STAINED_GLASS_PANE
     name: ' '
     lore: []
+  B:
+    material: BARRIER
+    name: '<red>返回主菜单'
+    lore:
+      - '<gray>点击返回服务器菜单'
+    commands:
+      - '[player] menu'
 
 home-item:
   material: RED_BED

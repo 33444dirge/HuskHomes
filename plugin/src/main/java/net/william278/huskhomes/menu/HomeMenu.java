@@ -86,6 +86,7 @@ public final class HomeMenu implements Listener {
                 .toList();
 
         final Map<Character, ItemTemplate> items = new HashMap<>();
+        final Map<Character, List<String>> commands = new HashMap<>();
         final ConfigurationSection section = config.getConfigurationSection("items");
         if (section != null) {
             for (String key : section.getKeys(false)) {
@@ -95,6 +96,10 @@ public final class HomeMenu implements Listener {
                 final ConfigurationSection item = section.getConfigurationSection(key);
                 if (item != null) {
                     items.put(key.charAt(0), ItemTemplate.from(item));
+                    final List<String> itemCommands = item.getStringList("commands");
+                    if (!itemCommands.isEmpty()) {
+                        commands.put(key.charAt(0), List.copyOf(itemCommands));
+                    }
                 }
             }
         }
@@ -107,7 +112,8 @@ public final class HomeMenu implements Listener {
                 ItemTemplate.from(config.getConfigurationSection("previous-page-disabled")),
                 ItemTemplate.from(Objects.requireNonNull(config.getConfigurationSection("next-page"))),
                 ItemTemplate.from(config.getConfigurationSection("next-page-disabled")),
-                items
+                items,
+                Map.copyOf(commands)
         );
         final ConfigurationSection worlds = config.getConfigurationSection("world-names");
         final Map<String, String> configuredWorldNames = new HashMap<>();
@@ -234,6 +240,11 @@ public final class HomeMenu implements Listener {
         event.setCancelled(true);
 
         final char marker = layout.markerAt(event.getRawSlot());
+        final List<String> commands = layout.commands().get(marker);
+        if (commands != null && marker != HOME_SLOT && marker != PREVIOUS_PAGE && marker != NEXT_PAGE) {
+            runCommands(player, commands);
+            return;
+        }
         final ItemStack item = event.getCurrentItem();
         final String navigation = item != null && item.hasItemMeta()
                 ? item.getItemMeta().getPersistentDataContainer().get(navigationKey, PersistentDataType.STRING)
@@ -269,6 +280,49 @@ public final class HomeMenu implements Listener {
         } else if (event.isRightClick()) {
             openEditor(plugin.getOnlineUser(player), home);
         }
+    }
+
+    /**
+     * Runs the configured commands of a custom button. Supported prefixes:
+     * {@code [player]} (default), {@code [console]} and {@code [close]}.
+     * Commands run one tick later so that other plugins can safely open their own menus.
+     */
+    private void runCommands(@NotNull Player player, @NotNull List<String> commands) {
+        player.closeInventory();
+        final OnlineUser user = plugin.getOnlineUser(player);
+        plugin.runSyncDelayed(() -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            for (String line : commands) {
+                String command = line.trim();
+                String type = "player";
+                if (command.startsWith("[")) {
+                    final int end = command.indexOf(']');
+                    if (end > 0) {
+                        type = command.substring(1, end).trim().toLowerCase();
+                        command = command.substring(end + 1).trim();
+                    }
+                }
+                if (command.startsWith("/")) {
+                    command = command.substring(1);
+                }
+                command = command.replace("%player%", player.getName())
+                        .replace("%uuid%", player.getUniqueId().toString());
+                if (type.equals("close") || command.isEmpty()) {
+                    continue;
+                }
+                switch (type) {
+                    // Console commands must run on the global region thread on Folia
+                    case "console" -> {
+                        final String consoleCommand = command;
+                        plugin.runSync(() -> plugin.getServer().dispatchCommand(
+                                plugin.getServer().getConsoleSender(), consoleCommand));
+                    }
+                    default -> player.performCommand(command);
+                }
+            }
+        }, user, 1);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -450,7 +504,8 @@ public final class HomeMenu implements Listener {
                           @Nullable ItemTemplate emptyHomeItem,
                           @NotNull ItemTemplate previousPage, @Nullable ItemTemplate previousPageDisabled,
                           @NotNull ItemTemplate nextPage, @Nullable ItemTemplate nextPageDisabled,
-                          @NotNull Map<Character, ItemTemplate> items) {
+                          @NotNull Map<Character, ItemTemplate> items,
+                          @NotNull Map<Character, List<String>> commands) {
         private char markerAt(int slot) {
             return rows.get(slot / 9).charAt(slot % 9);
         }

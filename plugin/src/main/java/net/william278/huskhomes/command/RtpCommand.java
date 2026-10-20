@@ -23,6 +23,7 @@ import net.william278.huskhomes.HuskHomes;
 import net.william278.huskhomes.network.Broker;
 import net.william278.huskhomes.network.Message;
 import net.william278.huskhomes.network.Payload;
+import net.william278.huskhomes.position.Position;
 import net.william278.huskhomes.position.World;
 import net.william278.huskhomes.teleport.Teleport;
 import net.william278.huskhomes.teleport.TeleportBuilder;
@@ -33,20 +34,23 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public class RtpCommand extends Command implements UserListTabCompletable {
 
+    private static final int MAX_RADIUS = 29_999_984;
     private final Random random = new Random();
 
     protected RtpCommand(@NotNull HuskHomes plugin) {
         super(
                 List.of("rtp"),
-                "[player] [<world> [server]|<world>]",
+                "[player] [<world> [server]|<world>|<world> <min> <max>]",
                 plugin
         );
 
         addAdditionalPermissions(Map.of(
-                "other", true
+                "other", true,
+                "range", true
         ));
     }
 
@@ -67,6 +71,30 @@ public class RtpCommand extends Command implements UserListTabCompletable {
         }
 
         final OnlineUser teleporter = optionalTeleporter.get();
+
+        // Custom range: /rtp <player> <world> <min> <max>
+        if (args.length == 4) {
+            final Optional<Integer> min = parseRadius(args[2]);
+            final Optional<Integer> max = parseRadius(args[3]);
+            if (min.isPresent() && max.isPresent()) {
+                if (!executor.hasPermission(getPermission("range"))) {
+                    plugin.getLocales().getLocale("error_no_permission")
+                            .ifPresent(executor::sendMessage);
+                    return;
+                }
+                if (max.get() <= min.get()) {
+                    plugin.getLocales().getLocale("error_invalid_syntax", getUsage())
+                            .ifPresent(executor::sendMessage);
+                    return;
+                }
+
+                // Custom ranges are always generated on this server
+                validateRtp(teleporter, executor, args[1].replace("minecraft:", ""), plugin.getServerName())
+                        .ifPresent(entry -> performLocalRTP(teleporter, executor, entry.getKey(),
+                                min.get(), max.get(), args));
+                return;
+            }
+        }
 
         // Determine the target world and server based on the command arguments
         String worldName = teleporter.getPosition().getWorld().getName();
@@ -296,22 +324,55 @@ public class RtpCommand extends Command implements UserListTabCompletable {
      */
     private void performLocalRTP(@NotNull OnlineUser teleporter, @NotNull CommandUser executor, @NotNull World world,
                                  @NotNull String[] args) {
-        plugin.getRandomTeleportEngine()
-                .getRandomPosition(world, args.length > 1 ? removeFirstArg(args) : args)
-                .thenAccept(position -> {
-                    if (position.isEmpty()) {
-                        plugin.getLocales().getLocale("error_rtp_randomization_timeout")
-                                .ifPresent(executor::sendMessage);
-                        return;
-                    }
+        completeRtp(teleporter, executor, plugin.getRandomTeleportEngine()
+                .getRandomPosition(world, args.length > 1 ? removeFirstArg(args) : args), args);
+    }
 
-                    // Build and execute the teleport
-                    final TeleportBuilder builder = Teleport.builder(plugin)
-                            .teleporter(teleporter)
-                            .type(Teleport.Type.RANDOM_TELEPORT)
-                            .actions(TransactionResolver.Action.RANDOM_TELEPORT)
-                            .target(position.get());
-                    builder.buildAndComplete(executor.equals(teleporter), args);
-                });
+    /**
+     * Performs the RTP locally within a custom radius range.
+     *
+     * @param teleporter person to teleport
+     * @param executor   the person executing the teleport
+     * @param world      the world to teleport to
+     * @param minRadius  the minimum distance from the center point
+     * @param maxRadius  the maximum distance from the center point
+     * @param args       rtp engine args
+     */
+    private void performLocalRTP(@NotNull OnlineUser teleporter, @NotNull CommandUser executor, @NotNull World world,
+                                 int minRadius, int maxRadius, @NotNull String[] args) {
+        plugin.getLocales().getLocale("teleporting_random_generation")
+                .ifPresent(teleporter::sendMessage);
+        completeRtp(teleporter, executor, plugin.getRandomTeleportEngine()
+                .getRandomPosition(world, minRadius, maxRadius, removeFirstArg(args)), args);
+    }
+
+    private void completeRtp(@NotNull OnlineUser teleporter, @NotNull CommandUser executor,
+                             @NotNull CompletableFuture<Optional<Position>> future, @NotNull String[] args) {
+        future.thenAccept(position -> {
+            if (position.isEmpty()) {
+                plugin.getLocales().getLocale("error_rtp_randomization_timeout")
+                        .ifPresent(executor::sendMessage);
+                return;
+            }
+
+            // Build and execute the teleport
+            final TeleportBuilder builder = Teleport.builder(plugin)
+                    .teleporter(teleporter)
+                    .type(Teleport.Type.RANDOM_TELEPORT)
+                    .actions(TransactionResolver.Action.RANDOM_TELEPORT)
+                    .target(position.get());
+            builder.buildAndComplete(executor.equals(teleporter), args);
+        });
+    }
+
+    // Parses a non-negative radius within the vanilla world border limit
+    @NotNull
+    private static Optional<Integer> parseRadius(@NotNull String value) {
+        try {
+            final int radius = Integer.parseInt(value);
+            return radius >= 0 && radius <= MAX_RADIUS ? Optional.of(radius) : Optional.empty();
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 }

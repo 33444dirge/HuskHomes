@@ -37,6 +37,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Level;
 
 /**
  * Represents the process of a {@link Teleportable} being teleported to a {@link Target}.
@@ -91,6 +92,10 @@ public class Teleport implements Completable {
     }
 
     private void executeLocal(@NotNull OnlineUser teleporter) throws TeleportationException {
+        // Validate the target before the teleport event is fired, so that invalid targets are reported
+        // synchronously (rather than throwing from an asynchronous task after transactions have been performed)
+        validateLocalTarget(teleporter);
+
         if (target instanceof Username username) {
             final Optional<OnlineUser> localTarget = username.name().equals("@s")
                     ? Optional.of(executor) : username.findLocally(plugin);
@@ -187,7 +192,37 @@ public class Teleport implements Completable {
 
     // Fire the teleport event
     private void fireEvent(@NotNull ThrowingConsumer<ITeleportEvent> afterFired) {
-        plugin.fireEvent(plugin.getTeleportEvent(this), afterFired);
+        plugin.fireEvent(plugin.getTeleportEvent(this), event -> {
+            try {
+                afterFired.acceptThrows(event);
+            } catch (TeleportationException e) {
+                e.displayMessage(executor);
+            } catch (Throwable e) {
+                plugin.log(Level.WARNING, "An error occurred while executing a teleport", e);
+            }
+        });
+    }
+
+    /**
+     * Validates the local target of this teleport, if it is on this server.
+     *
+     * @param teleporter the local {@link OnlineUser} performing the teleport
+     * @throws TeleportationException if the target cannot be teleported to
+     */
+    protected void validateLocalTarget(@NotNull OnlineUser teleporter) throws TeleportationException {
+        if (target instanceof Position position) {
+            // Targets on other servers are validated by the receiving server
+            if (!plugin.getSettings().getCrossServer().isEnabled()
+                    || position.getServer().equals(plugin.getServerName())) {
+                teleporter.validateTeleportTarget(position);
+            }
+            return;
+        }
+
+        if (target instanceof Username username) {
+            (username.name().equals("@s") ? Optional.of(executor) : username.findLocally(plugin))
+                    .ifPresent(user -> teleporter.validateTeleportTarget(user.getPosition()));
+        }
     }
 
     // Check economy actions

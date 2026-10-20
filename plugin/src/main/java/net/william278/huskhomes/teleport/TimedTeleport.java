@@ -58,6 +58,10 @@ public class TimedTeleport extends Teleport implements Runnable, Completable {
 
     @Override
     public void execute() throws TeleportationException {
+        // Validate the target before starting the warmup, so the player isn't made to wait
+        // only for the teleport to fail when the warmup completes
+        validateLocalTarget(teleporter);
+
         // Check if the teleporter can bypass warmup
         if (timeLeft == 0 || teleporter.hasPermission(BYPASS_PERMISSION)) {
             super.execute();

@@ -175,6 +175,20 @@ public abstract class OnlineUser extends User implements Teleportable, CommandUs
     public abstract CompletableFuture<Void> dismount();
 
     /**
+     * Validate that this user can be teleported to the given target {@link Location}.
+     *
+     * <p>This is checked <em>before</em> a teleport is executed, so that invalid targets (such as positions
+     * outside of the world border) are rejected with a friendly message rather than throwing an exception from
+     * within an asynchronous task. Implementations should throw a {@link TeleportationException} describing the
+     * problem if the target is invalid.
+     *
+     * @param location the {@link Location} the user is being teleported to
+     * @throws TeleportationException if the user cannot be teleported to the target location
+     */
+    public void validateTeleportTarget(@NotNull Location location) throws TeleportationException {
+    }
+
+    /**
      * Teleport a player to the specified local {@link Location}.
      *
      * @param location the {@link Location} to teleport the player to

@@ -26,6 +26,7 @@ import net.william278.huskhomes.position.Position;
 import net.william278.huskhomes.teleport.TeleportationException;
 import net.william278.huskhomes.util.FoliaScheduler;
 import org.bukkit.NamespacedKey;
+import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.metadata.MetadataValue;
@@ -34,9 +35,11 @@ import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 /**
@@ -112,15 +115,33 @@ public class BukkitUser extends OnlineUser {
     }
 
     @Override
-    public void teleportLocally(@NotNull Location target, boolean async) throws TeleportationException {
-        // Ensure the location is valid (world exists, coordinates are within the world border)
+    public void validateTeleportTarget(@NotNull Location target) throws TeleportationException {
         final org.bukkit.Location location = PaperHuskHomes.Adapter.adapt(target);
-        if (location.getWorld() == null) {
+        final org.bukkit.World world = location.getWorld();
+        if (world == null) {
             throw new TeleportationException(TeleportationException.Type.WORLD_NOT_FOUND, plugin);
         }
-        if (!location.getWorld().getWorldBorder().isInside(location)) {
+
+        final WorldBorder border = world.getWorldBorder();
+        if (!border.isInside(location)) {
+            // Log the offending position so administrators can work out why the target is out of bounds
+            final double halfSize = border.getSize() / 2.0;
+            plugin.log(Level.WARNING, String.format(Locale.ROOT,
+                    "Blocked teleport of %s to %.2f, %.2f, %.2f in world '%s': the position is outside the world "
+                            + "border (x: %.1f to %.1f, z: %.1f to %.1f)",
+                    getName(), target.getX(), target.getY(), target.getZ(), world.getName(),
+                    border.getCenter().getX() - halfSize, border.getCenter().getX() + halfSize,
+                    border.getCenter().getZ() - halfSize, border.getCenter().getZ() + halfSize
+            ));
             throw new TeleportationException(TeleportationException.Type.ILLEGAL_TARGET_COORDINATES, plugin);
         }
+    }
+
+    @Override
+    public void teleportLocally(@NotNull Location target, boolean async) throws TeleportationException {
+        // Ensure the location is valid (world exists, coordinates are within the world border)
+        validateTeleportTarget(target);
+        final org.bukkit.Location location = PaperHuskHomes.Adapter.adapt(target);
 
         plugin.runSync(() -> {
             bukkitPlayer.leaveVehicle();

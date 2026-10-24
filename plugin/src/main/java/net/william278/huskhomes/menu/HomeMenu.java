@@ -216,7 +216,8 @@ public final class HomeMenu implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(@NotNull InventoryClickEvent event) {
-        final InventoryHolder inventoryHolder = event.getView().getTopInventory().getHolder();
+        // Only inspect the holder; block inventory snapshots can serialize all contained items.
+        final InventoryHolder inventoryHolder = event.getView().getTopInventory().getHolder(false);
         final boolean menuOpen = inventoryHolder instanceof HomeMenuHolder || inventoryHolder instanceof ConfirmationHolder;
         final boolean fromPlayerInventory = event.getRawSlot() >= event.getView().getTopInventory().getSize();
         if (menuOpen && (event.getAction() == InventoryAction.COLLECT_TO_CURSOR
@@ -327,8 +328,8 @@ public final class HomeMenu implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryDrag(@NotNull InventoryDragEvent event) {
-        if (event.getView().getTopInventory().getHolder() instanceof HomeMenuHolder
-            || event.getView().getTopInventory().getHolder() instanceof ConfirmationHolder) {
+        final InventoryHolder inventoryHolder = event.getView().getTopInventory().getHolder(false);
+        if (inventoryHolder instanceof HomeMenuHolder || inventoryHolder instanceof ConfirmationHolder) {
             final int topSize = event.getView().getTopInventory().getSize();
             if (event.getRawSlots().stream().anyMatch(slot -> slot < topSize)) {
                 event.setCancelled(true);

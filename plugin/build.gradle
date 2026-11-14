@@ -48,6 +48,15 @@ java {
 compileJava.options.release.set(21)
 
 shadowJar {
+    // Some dependencies already bundle classes that also occur in runtimeClasspath.
+    // Paper's plugin remapper rejects JARs containing duplicate ZIP entries.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // Keep all service providers available to the transformer before deduplication.
+    filesMatching('META-INF/services/**') {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
+    mergeServiceFiles()
+
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
 

@@ -57,6 +57,7 @@ public abstract class EventListener {
      * @param onlineUser the joining {@link OnlineUser}
      */
     protected final void handlePlayerJoin(@NotNull OnlineUser onlineUser) {
+        final Runnable loadHomes = plugin.getManager().homes().beginUserHomesSession(onlineUser);
         plugin.runAsync(() -> {
             // Ensure the user is in the database
             plugin.getDatabase().ensureUser(onlineUser);
@@ -82,7 +83,7 @@ public abstract class EventListener {
             }
 
             // Cache this user's homes
-            plugin.getManager().homes().cacheUserHomes(onlineUser);
+            loadHomes.run();
 
             // Set their ignoring requests state
             plugin.getDatabase().getUser(onlineUser.getUuid()).ifPresent(userData -> {
@@ -104,15 +105,13 @@ public abstract class EventListener {
      * @param online the leaving {@link OnlineUser}
      */
     protected final void handlePlayerLeave(@NotNull OnlineUser online) {
+        plugin.getManager().homes().removeUserHomes(online);
         plugin.getOnlineUserMap().remove(online.getUuid());
         online.removeInvulnerabilityIfPermitted();
 
         plugin.runAsync(() -> {
             // Set offline position
             plugin.getDatabase().setOfflinePosition(online, online.getPosition());
-
-            // Remove this user's home cache
-            plugin.getManager().homes().removeUserHomes(online);
 
             // Update global lists
             if (plugin.getSettings().getCrossServer().isEnabled()) {

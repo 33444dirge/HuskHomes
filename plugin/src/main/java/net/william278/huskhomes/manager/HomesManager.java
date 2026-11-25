@@ -37,19 +37,39 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Consumer;
 
 public class HomesManager {
 
     private final HuskHomes plugin;
     private final ConcurrentLinkedQueue<Home> publicHomes;
-    private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Home>> userHomes;
+    private final Map<UUID, HomeSession> userHomes = new ConcurrentHashMap<>();
+    // Join and quit events take precedence over the one-time online-player snapshot.
+    @Nullable
+    private Set<UUID> startupEvents = new HashSet<>();
+
+    private static final class HomeSession {
+        private final UUID uuid;
+        private final String name;
+        private volatile ConcurrentLinkedQueue<Home> homes;
+        private long revision;
+
+        private HomeSession(User user) {
+            this.uuid = user.getUuid();
+            this.name = user.getName();
+        }
+
+        private synchronized void update(Consumer<ConcurrentLinkedQueue<Home>> change) {
+            revision++;
+            if (homes != null) {
+                change.accept(homes);
+            }
+        }
+    }
 
     protected HomesManager(@NotNull HuskHomes plugin) {
         this.plugin = plugin;
         this.publicHomes = new ConcurrentLinkedQueue<>(plugin.getDatabase().getPublicHomes());
-        this.userHomes = new ConcurrentHashMap<>();
-        plugin.runAsync(() -> plugin.getOnlineUsers()
-                .forEach(this::cacheUserHomes));
     }
 
     /**
@@ -59,9 +79,14 @@ public class HomesManager {
      */
     @NotNull
     public Map<String, List<String>> getUserHomes() {
-        return userHomes.entrySet().stream()
-                .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue().stream().map(Home::getName).toList()),
-                        HashMap::putAll);
+        final Map<String, List<String>> names = new HashMap<>();
+        userHomes.values().forEach(session -> {
+            final var homes = session.homes;
+            if (homes != null) {
+                names.put(session.name, homes.stream().map(Home::getName).toList());
+            }
+        });
+        return names;
     }
 
     /**
@@ -71,8 +96,10 @@ public class HomesManager {
      */
     @NotNull
     public List<String> getUserHomeIdentifiers() {
-        return userHomes.entrySet().stream()
-                .flatMap(e -> e.getValue().stream().map(Home::getIdentifier))
+        return userHomes.values().stream()
+                .map(session -> session.homes)
+                .filter(Objects::nonNull)
+                .flatMap(homes -> homes.stream().map(Home::getIdentifier))
                 .toList();
     }
 
@@ -118,12 +145,69 @@ public class HomesManager {
     }
 
     /**
-     * Cache user homes for a given user.
+     * Refresh the personal home cache for the user's current login, if present.
      *
      * @param user the user to cache homes for
      */
     public void cacheUserHomes(@NotNull User user) {
-        userHomes.put(user.getName(), new ConcurrentLinkedQueue<>(plugin.getDatabase().getHomes(user)));
+        final HomeSession session = userHomes.get(user.getUuid());
+        if (session != null) {
+            loadHomes(session);
+        }
+    }
+
+    /**
+     * Register a login in the join event and return the database work for that login.
+     */
+    @NotNull
+    public synchronized Runnable beginUserHomesSession(@NotNull User user) {
+        final HomeSession session = new HomeSession(user);
+        if (startupEvents != null) {
+            startupEvents.add(session.uuid);
+        }
+        userHomes.put(session.uuid, session);
+        return () -> loadHomes(session);
+    }
+
+    /**
+     * Load homes for players already online when the listener was registered.
+     */
+    public void warmUserHomes(@NotNull Collection<User> onlineUsers) {
+        final List<HomeSession> sessions = new ArrayList<>();
+        synchronized (this) {
+            if (startupEvents == null) {
+                return;
+            }
+            for (User user : onlineUsers) {
+                final HomeSession session = new HomeSession(user);
+                if (!startupEvents.contains(session.uuid) && userHomes.putIfAbsent(session.uuid, session) == null) {
+                    sessions.add(session);
+                }
+            }
+            startupEvents = null;
+        }
+        if (!sessions.isEmpty()) {
+            plugin.runAsync(() -> sessions.forEach(this::loadHomes));
+        }
+    }
+
+    private void loadHomes(HomeSession session) {
+        // Late work has access only to its own session. Removing that session never blocks on a database read.
+        final User owner = User.of(session.uuid, session.name);
+        while (userHomes.get(session.uuid) == session) {
+            final long revision;
+            synchronized (session) {
+                revision = session.revision;
+            }
+            final var homes = new ConcurrentLinkedQueue<>(plugin.getDatabase().getHomes(owner));
+            synchronized (session) {
+                // A successful edit during the read must be included in the published list.
+                if (session.revision == revision) {
+                    session.homes = homes;
+                    return;
+                }
+            }
+        }
     }
 
     /**
@@ -133,17 +217,23 @@ public class HomesManager {
      * @param propagate whether to propagate the cache update to other servers (if cross-server is enabled)
      */
     public void cacheHome(@NotNull Home home, boolean propagate) {
-        userHomes.computeIfPresent(home.getOwner().getName(), (k, v) -> {
-            v.remove(home);
-            v.add(home);
-            return v;
-        });
-        if (publicHomes.remove(home) && !home.isPublic()) {
-            plugin.removeMappedHome(home);
+        final User owner = home.getOwner();
+        final Home cached = Home.from(home.getX(), home.getY(), home.getZ(), home.getYaw(), home.getPitch(),
+                home.getWorld(), home.getServer(), home.getMeta().copy(), home.getUuid(),
+                User.of(owner.getUuid(), owner.getName()), home.isPublic());
+        final HomeSession session = userHomes.get(owner.getUuid());
+        if (session != null) {
+            session.update(homes -> {
+                homes.remove(cached);
+                homes.add(cached);
+            });
         }
-        if (home.isPublic()) {
-            publicHomes.add(home);
-            plugin.addMappedHome(home);
+        if (publicHomes.remove(cached) && !cached.isPublic()) {
+            plugin.removeMappedHome(cached);
+        }
+        if (cached.isPublic()) {
+            publicHomes.add(cached);
+            plugin.addMappedHome(cached);
         }
 
         plugin.getCommands().stream()
@@ -156,7 +246,8 @@ public class HomesManager {
     }
 
     public void unCacheHome(@NotNull UUID homeId, boolean propagate) {
-        userHomes.values().forEach(homes -> homes.removeIf(home -> home.getUuid().equals(homeId)));
+        userHomes.values().forEach(session -> session.update(
+                homes -> homes.removeIf(home -> home.getUuid().equals(homeId))));
         publicHomes.removeIf(home -> {
             if (home.getUuid().equals(homeId)) {
                 plugin.removeMappedHome(home);
@@ -194,8 +285,12 @@ public class HomesManager {
         plugin.getDatabase().getPublicHomes().forEach(home -> cacheHome(home, false));
     }
 
-    public void removeUserHomes(@NotNull User user) {
-        userHomes.remove(user.getUuid().toString());
+    public synchronized void removeUserHomes(@NotNull User user) {
+        final UUID uuid = user.getUuid();
+        if (startupEvents != null) {
+            startupEvents.add(uuid);
+        }
+        userHomes.remove(uuid);
     }
 
     @NotNull
@@ -271,10 +366,10 @@ public class HomesManager {
 
     public int deleteAllHomes(@NotNull User owner) {
         final int deleted = plugin.getDatabase().deleteAllHomes(owner);
-        userHomes.computeIfPresent(owner.getName(), (k, v) -> {
-            v.clear();
-            return v;
-        });
+        final HomeSession session = userHomes.get(owner.getUuid());
+        if (session != null) {
+            session.update(ConcurrentLinkedQueue::clear);
+        }
         publicHomes.removeIf(h -> h.getOwner().getUuid().equals(owner.getUuid()));
         plugin.removeAllMappedHomes(owner);
         plugin.getCommands().stream()
@@ -287,9 +382,9 @@ public class HomesManager {
 
     public int deleteAllHomes(@NotNull String worldName, @NotNull String serverName) {
         final int deleted = plugin.getDatabase().deleteAllHomes(worldName, serverName);
-        userHomes.values().forEach(homes -> homes.removeIf(
+        userHomes.values().forEach(session -> session.update(homes -> homes.removeIf(
                 h -> h.getWorld().getName().equals(worldName) && h.getServer().equals(serverName)
-        ));
+        )));
         publicHomes.removeIf(h -> h.getWorld().getName().equals(worldName) && h.getServer().equals(serverName));
         if (plugin.getSettings().getCrossServer().isEnabled() && serverName.equals(plugin.getServerName())) {
             plugin.removeAllMappedHomes(worldName);

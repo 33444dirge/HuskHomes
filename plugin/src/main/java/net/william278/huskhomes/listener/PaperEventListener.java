@@ -21,6 +21,7 @@ package net.william278.huskhomes.listener;
 
 import net.william278.huskhomes.PaperHuskHomes;
 import net.william278.huskhomes.config.Settings;
+import net.william278.huskhomes.user.User;
 import org.bukkit.Location;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
@@ -42,6 +43,9 @@ public class PaperEventListener extends EventListener implements Listener {
     @Override
     public void register() {
         getPlugin().getServer().getPluginManager().registerEvents(this, getPlugin());
+        getPlugin().getManager().homes().warmUserHomes(getPlugin().getServer().getOnlinePlayers().stream()
+                .map(player -> User.of(player.getUniqueId(), player.getName()))
+                .toList());
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
